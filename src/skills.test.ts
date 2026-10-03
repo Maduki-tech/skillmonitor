@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { installedSkills } from "./skills";
 
-test("finds user and installed plugin skills with who may invoke them", () => {
+test("finds user and installed plugin skills with who may invoke them and their size", () => {
     const home = mkdtempSync(join(tmpdir(), "skillmon-"));
     const skill = (dir: string, frontmatter = "") => {
         mkdirSync(dir, { recursive: true });
@@ -12,7 +12,8 @@ test("finds user and installed plugin skills with who may invoke them", () => {
     };
     const plugin = join(home, ".claude/plugins/cache/p/p/1.0");
 
-    skill(join(home, ".claude/skills/mine"));
+    skill(join(home, ".claude/skills/mine"), "description: Does a thing\n");
+    skill(join(home, ".claude/skills/bare"));
     skill(join(home, ".agents/skills/linked"), "user-invocable: false\n");
     symlinkSync(
         join(home, ".agents/skills/linked"),
@@ -29,11 +30,13 @@ test("finds user and installed plugin skills with who may invoke them", () => {
         JSON.stringify({ plugins: { "p@p": [{ installPath: plugin }] } }),
     );
 
+    // body is "body" (4 chars); listings are "name: description"
     expect(installedSkills(home)).toEqual(
         new Map([
-            ["from-plugin", "user"],
-            ["linked", "agent"],
-            ["mine", "both"],
+            ["bare", { invocation: "both", chars: 4, listingChars: 6 }],
+            ["from-plugin", { invocation: "user", chars: 4, listingChars: 0 }],
+            ["linked", { invocation: "agent", chars: 4, listingChars: 8 }],
+            ["mine", { invocation: "both", chars: 4, listingChars: 18 }],
         ]),
     );
 });

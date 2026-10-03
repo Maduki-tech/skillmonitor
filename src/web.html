@@ -1,0 +1,1173 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>skillmon</title>
+        <script>
+            // Before first paint, so a stored theme never flashes the other one.
+            try {
+                const t = localStorage.getItem("theme");
+                if (t) document.documentElement.dataset.theme = t;
+            } catch {}
+        </script>
+        <style>
+            :root {
+                color-scheme: light;
+                --page: #f9f9f7;
+                --surface: #fcfcfb;
+                --ink: #0b0b0b;
+                --ink-2: #52514e;
+                --muted: #898781;
+                --border: rgba(11, 11, 11, 0.1);
+                --hover: rgba(11, 11, 11, 0.05);
+                --grid: #e1e0d9;
+                --baseline: #c3c2b7;
+                --accent: #2a78d6;
+                --on-accent: #ffffff;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root:not([data-theme="light"]) {
+                    color-scheme: dark;
+                    --page: #0d0d0d;
+                    --surface: #1a1a19;
+                    --ink: #ffffff;
+                    --ink-2: #c3c2b7;
+                    --border: rgba(255, 255, 255, 0.1);
+                    --hover: rgba(255, 255, 255, 0.06);
+                    --grid: #2c2c2a;
+                    --baseline: #383835;
+                    --accent: #3987e5;
+                }
+            }
+            :root[data-theme="dark"] {
+                color-scheme: dark;
+                --page: #0d0d0d;
+                --surface: #1a1a19;
+                --ink: #ffffff;
+                --ink-2: #c3c2b7;
+                --border: rgba(255, 255, 255, 0.1);
+                --hover: rgba(255, 255, 255, 0.06);
+                --grid: #2c2c2a;
+                --baseline: #383835;
+                --accent: #3987e5;
+            }
+
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                background: var(--page);
+                color: var(--ink);
+                font:
+                    15px/1.5 system-ui,
+                    sans-serif;
+            }
+            .wrap {
+                max-width: 1100px;
+                margin: 0 auto;
+                padding: 32px 16px 64px;
+            }
+
+            header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 16px;
+                margin-bottom: 24px;
+            }
+            h1 {
+                margin: 0;
+                font-size: 22px;
+                font-weight: 650;
+                letter-spacing: -0.01em;
+            }
+            .sub {
+                color: var(--muted);
+                font-size: 13px;
+            }
+
+            button,
+            input {
+                font: inherit;
+                color: inherit;
+            }
+            .icon-btn {
+                display: grid;
+                place-items: center;
+                width: 36px;
+                height: 36px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: var(--surface);
+                cursor: pointer;
+            }
+            .icon-btn:hover {
+                background: var(--hover);
+            }
+            .icon-btn svg {
+                width: 18px;
+                height: 18px;
+            }
+            /* Show the icon of the theme you would switch to. */
+            .sun {
+                display: none;
+            }
+            :root[data-theme="dark"] .sun {
+                display: block;
+            }
+            :root[data-theme="dark"] .moon {
+                display: none;
+            }
+            @media (prefers-color-scheme: dark) {
+                :root:not([data-theme]) .sun {
+                    display: block;
+                }
+                :root:not([data-theme]) .moon {
+                    display: none;
+                }
+            }
+
+            .filters {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 24px;
+            }
+            .seg {
+                display: inline-flex;
+                padding: 3px;
+                gap: 2px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: var(--surface);
+            }
+            .seg button {
+                border: 0;
+                border-radius: 7px;
+                padding: 4px 10px;
+                background: none;
+                color: var(--ink-2);
+                font-size: 13px;
+                cursor: pointer;
+            }
+            .seg button:hover {
+                background: var(--hover);
+            }
+            .seg button[aria-pressed="true"] {
+                background: var(--accent);
+                color: var(--on-accent);
+            }
+            #kinds button[aria-pressed="true"] {
+                background: color-mix(in srgb, var(--accent) 18%, transparent);
+                color: var(--ink);
+            }
+            .range {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                color: var(--muted);
+                font-size: 13px;
+            }
+            .range input {
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 4px 8px;
+                background: var(--surface);
+                font-size: 13px;
+            }
+
+            .tiles {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 12px;
+            }
+            .card {
+                border: 1px solid var(--border);
+                border-radius: 14px;
+                background: var(--surface);
+                padding: 16px 18px;
+            }
+            .tile .label {
+                color: var(--ink-2);
+                font-size: 13px;
+            }
+            .tile .value {
+                font-size: 32px;
+                font-weight: 600;
+                letter-spacing: -0.02em;
+                line-height: 1.2;
+                margin: 4px 0 2px;
+            }
+            .error {
+                color: var(--ink-2);
+            }
+
+            .grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 12px;
+                margin-top: 12px;
+            }
+            @media (max-width: 720px) {
+                .grid {
+                    grid-template-columns: minmax(0, 1fr);
+                }
+            }
+            .wide {
+                grid-column: 1 / -1;
+            }
+            h2 {
+                margin: 0 0 14px;
+                font-size: 14px;
+                font-weight: 600;
+            }
+            h2 .sub {
+                margin-left: 6px;
+                font-weight: 400;
+            }
+            .empty {
+                color: var(--muted);
+                font-size: 13px;
+            }
+
+            /* Column chart: each .col is a full-height hit target, the <i> is the bar. */
+            .cols {
+                display: flex;
+                align-items: flex-end;
+                gap: 2px;
+                height: 160px;
+                border-bottom: 1px solid var(--baseline);
+            }
+            .col {
+                flex: 1;
+                min-width: 0;
+                height: 100%;
+                display: flex;
+                align-items: flex-end;
+                justify-content: center;
+            }
+            .col i {
+                width: 100%;
+                max-width: 28px;
+                background: var(--accent);
+                border-radius: 4px 4px 0 0;
+            }
+            .col:hover i {
+                filter: brightness(1.2);
+            }
+            .axis {
+                display: flex;
+                justify-content: space-between;
+                margin-top: 6px;
+                color: var(--muted);
+                font-size: 12px;
+                font-variant-numeric: tabular-nums;
+            }
+
+            .hbar {
+                display: grid;
+                grid-template-columns: minmax(0, 38%) 1fr minmax(3ch, auto);
+                align-items: center;
+                gap: 10px;
+                padding: 3px 0;
+                font-size: 13px;
+            }
+            .hbar .name {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+            .hbar i {
+                display: block;
+                height: 8px;
+                background: var(--accent);
+                border-radius: 0 4px 4px 0;
+            }
+            .num {
+                text-align: right;
+                color: var(--ink-2);
+                font-variant-numeric: tabular-nums;
+            }
+
+            #tip {
+                position: fixed;
+                z-index: 1;
+                pointer-events: none;
+                padding: 6px 10px;
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                background: var(--surface);
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+                font-size: 12px;
+                color: var(--ink-2);
+            }
+            #tip strong {
+                display: block;
+                color: var(--ink);
+                font-size: 14px;
+            }
+
+            .table-wrap {
+                overflow-x: auto;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 13px;
+            }
+            th,
+            td {
+                padding: 8px 10px;
+                border-bottom: 1px solid var(--grid);
+                text-align: left;
+                white-space: nowrap;
+            }
+            th.num,
+            td.num {
+                text-align: right;
+            }
+            th button {
+                border: 0;
+                padding: 0;
+                background: none;
+                color: var(--ink-2);
+                font-weight: 600;
+                cursor: pointer;
+            }
+            th[aria-sort="descending"] button::after {
+                content: " ↓";
+            }
+            th[aria-sort="ascending"] button::after {
+                content: " ↑";
+            }
+            tbody tr:hover {
+                background: var(--hover);
+            }
+            tr.zero td {
+                color: var(--muted);
+            }
+            .pill {
+                padding: 1px 8px;
+                border-radius: 99px;
+                background: var(--hover);
+                color: var(--ink-2);
+                font-size: 12px;
+            }
+
+            .note {
+                margin: 0 0 14px;
+                padding: 10px 12px;
+                border-radius: 10px;
+                background: color-mix(in srgb, var(--accent) 12%, transparent);
+                color: var(--ink-2);
+                font-size: 13px;
+            }
+            .rule {
+                padding: 12px 0;
+                border-top: 1px solid var(--grid);
+            }
+            .rule summary {
+                display: flex;
+                list-style: none;
+                align-items: baseline;
+                gap: 8px;
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 14px;
+            }
+            .rule summary::-webkit-details-marker {
+                display: none;
+            }
+            .rule summary::before {
+                content: "›";
+                width: 10px;
+                color: var(--muted);
+                transition: rotate 0.15s;
+            }
+            .rule[open] summary::before {
+                rotate: 90deg;
+            }
+            .rule summary .num {
+                font-weight: 400;
+            }
+            .rule p {
+                margin: 4px 0 10px;
+                color: var(--ink-2);
+                font-size: 13px;
+            }
+            .lead {
+                margin: 0 0 14px;
+                color: var(--ink-2);
+                font-size: 13px;
+            }
+            .chips {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+
+            button:focus-visible,
+            summary:focus-visible,
+            input:focus-visible {
+                outline: 2px solid var(--accent);
+                outline-offset: 2px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="wrap">
+            <header>
+                <div>
+                    <h1>skillmon</h1>
+                    <div class="sub" id="loaded"></div>
+                </div>
+                <button
+                    class="icon-btn"
+                    id="theme"
+                    aria-label="Toggle light and dark mode"
+                >
+                    <svg
+                        class="moon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path
+                            d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"
+                        />
+                    </svg>
+                    <svg
+                        class="sun"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                    >
+                        <circle cx="12" cy="12" r="4" />
+                        <path
+                            d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
+                        />
+                    </svg>
+                </button>
+            </header>
+
+            <div class="filters">
+                <div class="seg" id="presets" aria-label="Time range">
+                    <button data-days="1">24h</button>
+                    <button data-days="7">7d</button>
+                    <button data-days="30">30d</button>
+                    <button data-days="90">90d</button>
+                    <button data-days="0">All</button>
+                </div>
+                <label class="range">
+                    <input type="date" id="from" aria-label="From" />
+                    –
+                    <input type="date" id="to" aria-label="To" />
+                </label>
+                <span class="range">may invoke</span>
+                <div class="seg" id="kinds" aria-label="Who may invoke">
+                    <button data-kind="both">both</button>
+                    <button data-kind="user">user</button>
+                    <button data-kind="agent">agent</button>
+                    <button data-kind="none">none</button>
+                    <button
+                        data-kind="other"
+                        title="Recorded, but no SKILL.md found: built-in or uninstalled"
+                    >
+                        other
+                    </button>
+                </div>
+                <div class="seg" id="metric" aria-label="Charts show">
+                    <button data-metric="calls">calls</button>
+                    <button data-metric="tokens">tokens</button>
+                </div>
+            </div>
+
+            <section class="tiles" id="tiles"></section>
+
+            <section class="grid">
+                <div class="card wide">
+                    <h2>Over time <span class="sub" id="time-sub"></span></h2>
+                    <div id="time"></div>
+                </div>
+                <div class="card">
+                    <h2>Top skills</h2>
+                    <div id="top"></div>
+                </div>
+                <div class="card">
+                    <h2>
+                        By hour of day <span class="sub" id="hours-sub"></span>
+                    </h2>
+                    <div id="hours"></div>
+                </div>
+                <div class="card wide">
+                    <h2>
+                        Suggestions
+                        <span class="sub"
+                            >all recorded history, ignores the filters</span
+                        >
+                    </h2>
+                    <p class="note" id="note" hidden></p>
+                    <p class="lead" id="listing"></p>
+                    <div id="rules"></div>
+                </div>
+                <div class="card wide">
+                    <h2>All skills</h2>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr id="head">
+                                    <th>
+                                        <button data-key="skill">skill</button>
+                                    </th>
+                                    <th>
+                                        <button data-key="kind">
+                                            may invoke
+                                        </button>
+                                    </th>
+                                    <th class="num">
+                                        <button data-key="calls">calls</button>
+                                    </th>
+                                    <th class="num">
+                                        <button data-key="share">share</button>
+                                    </th>
+                                    <th class="num">
+                                        <button
+                                            data-key="perCall"
+                                            title="Prompt size per call: measured average, else SKILL.md on disk"
+                                        >
+                                            ~tokens / call
+                                        </button>
+                                    </th>
+                                    <th class="num">
+                                        <button data-key="tokens">
+                                            ~tokens
+                                        </button>
+                                    </th>
+                                    <th class="num">
+                                        <button
+                                            data-key="listing"
+                                            title="Name and description the model sees in every session"
+                                        >
+                                            ~tokens / session
+                                        </button>
+                                    </th>
+                                    <th class="num">
+                                        <button data-key="last">
+                                            last used
+                                        </button>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="rows"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <div id="tip" role="tooltip" hidden></div>
+
+        <script type="module">
+            const DAY = 86400;
+            const $ = (s) => document.querySelector(s);
+            const nowSec = () => Math.floor(Date.now() / 1000);
+            const isoDay = (ts) => new Date(ts * 1000).toLocaleDateString("sv");
+            const dayStart = (iso) => new Date(`${iso}T00:00`) / 1000;
+            const compact = new Intl.NumberFormat(undefined, {
+                notation: "compact",
+            });
+            const percent = new Intl.NumberFormat(undefined, {
+                style: "percent",
+            });
+            const rtf = new Intl.RelativeTimeFormat(undefined, {
+                numeric: "auto",
+            });
+            // ponytail: ~4 characters per token for English markdown; a real
+            // tokenizer needs an API call
+            const tok = (chars) => Math.round(chars / 4);
+            const approx = (n) => `~${compact.format(n)}`;
+            const fmt = (ts, opts) =>
+                new Date(ts * 1000).toLocaleString(undefined, opts);
+
+            function ago(ts) {
+                const s = nowSec() - ts;
+                for (const [unit, n] of [
+                    ["day", DAY],
+                    ["hour", 3600],
+                    ["minute", 60],
+                ])
+                    if (s >= n) return rtf.format(-Math.floor(s / n), unit);
+                return "just now";
+            }
+
+            // Every label comes from skill names on disk, so text goes in via textContent.
+            function el(tag, cls, text) {
+                const e = document.createElement(tag);
+                if (cls) e.className = cls;
+                if (text !== undefined) e.textContent = text;
+                return e;
+            }
+
+            // from is inclusive, to is exclusive, both in Unix seconds.
+            const state = {
+                days: 30,
+                from: 0,
+                to: 0,
+                kinds: new Set(["both", "user", "agent", "none", "other"]),
+                sort: { key: "calls", desc: true },
+                metric: "calls",
+            };
+            let data;
+            const lastUsed = new Map();
+            // Tokens a call of the skill adds: measured average, else SKILL.md body.
+            const perCall = new Map();
+
+            const kindOf = (skill) => data.skills[skill]?.invocation ?? "other";
+            const weight = (e) => (state.metric === "calls" ? 1 : e.tokens);
+            const unitText = (n) =>
+                state.metric === "calls"
+                    ? `${n} ${n === 1 ? "call" : "calls"}`
+                    : `${approx(n)} tokens`;
+
+            function setPreset(days) {
+                state.days = days;
+                state.to = nowSec() + 1;
+                state.from = days
+                    ? state.to - days * DAY
+                    : (data.events[0]?.ts ?? state.to);
+                render();
+            }
+
+            function setCustom() {
+                const from = $("#from").value;
+                const to = $("#to").value;
+                if (!from || !to) return;
+                state.days = null;
+                state.from = dayStart(from);
+                state.to = dayStart(to) + DAY;
+                render();
+            }
+
+            function render() {
+                for (const b of $("#presets").children)
+                    b.ariaPressed = String(
+                        Number(b.dataset.days) === state.days,
+                    );
+                for (const b of $("#kinds").children)
+                    b.ariaPressed = String(state.kinds.has(b.dataset.kind));
+                for (const b of $("#metric").children)
+                    b.ariaPressed = String(b.dataset.metric === state.metric);
+                $("#from").value = isoDay(state.from);
+                $("#to").value = isoDay(state.to - 1);
+
+                const events = data.events.filter(
+                    (e) =>
+                        e.ts >= state.from &&
+                        e.ts < state.to &&
+                        state.kinds.has(kindOf(e.skill)),
+                );
+                const used = new Set(events.map((e) => e.skill));
+                const installed = Object.keys(data.skills).filter((s) =>
+                    state.kinds.has(data.skills[s].invocation),
+                );
+                const unused = installed.filter((s) => !used.has(s));
+                const other = [...used].filter((s) => !data.skills[s]).length;
+
+                const perDay = new Map();
+                for (const e of events) {
+                    const d = isoDay(e.ts);
+                    perDay.set(d, (perDay.get(d) ?? 0) + 1);
+                }
+                const [busyDay, busyCount] = [...perDay].reduce(
+                    (a, b) => (b[1] > a[1] ? b : a),
+                    [null, 0],
+                );
+
+                const tokens = events.reduce((a, e) => a + e.tokens, 0);
+                const today = dayStart(isoDay(nowSec()));
+                const tokensToday = data.events
+                    .filter(
+                        (e) =>
+                            e.ts >= today && state.kinds.has(kindOf(e.skill)),
+                    )
+                    .reduce((a, e) => a + e.tokens, 0);
+
+                tiles([
+                    ["Calls", compact.format(events.length), "in range"],
+                    [
+                        "Skill tokens",
+                        approx(tokens),
+                        `in range · ${approx(tokensToday)} today`,
+                    ],
+                    [
+                        "Skills used",
+                        used.size,
+                        `of ${installed.length} installed` +
+                            (other ? ` · ${other} other` : ""),
+                    ],
+                    ["Unused", unused.length, "installed, 0 calls in range"],
+                    [
+                        "Busiest day",
+                        busyCount || "–",
+                        busyDay
+                            ? new Date(`${busyDay}T00:00`).toLocaleDateString(
+                                  undefined,
+                                  {
+                                      weekday: "short",
+                                      month: "short",
+                                      day: "numeric",
+                                  },
+                              )
+                            : "no calls",
+                    ],
+                ]);
+
+                const time = timeBuckets(events);
+                const peak = columns($("#time"), time);
+                $("#time-sub").textContent =
+                    `${state.metric} · peak ${unitText(peak)} per ${time.unit}`;
+
+                const hours = Array.from({ length: 24 }, (_, h) => ({
+                    label: `${String(h).padStart(2, "0")}:00`,
+                    value: 0,
+                }));
+                for (const e of events)
+                    hours[new Date(e.ts * 1000).getHours()].value += weight(e);
+                columns($("#hours"), hours);
+                const busy = hours.reduce((a, b) =>
+                    b.value > a.value ? b : a,
+                );
+                $("#hours-sub").textContent = events.length
+                    ? `busiest ${busy.label}`
+                    : "";
+
+                const calls = new Map();
+                const tokensBy = new Map();
+                for (const e of events) {
+                    calls.set(e.skill, (calls.get(e.skill) ?? 0) + 1);
+                    tokensBy.set(
+                        e.skill,
+                        (tokensBy.get(e.skill) ?? 0) + e.tokens,
+                    );
+                }
+                const ranked = state.metric === "calls" ? calls : tokensBy;
+                topSkills(
+                    [...ranked]
+                        .filter(([, n]) => n > 0)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 10),
+                );
+
+                table(
+                    [...new Set([...installed, ...used])].map((skill) => ({
+                        skill,
+                        kind: kindOf(skill),
+                        calls: calls.get(skill) ?? 0,
+                        share: (calls.get(skill) ?? 0) / (events.length || 1),
+                        perCall: perCall.get(skill)?.tokens ?? -1,
+                        source: perCall.get(skill)?.source,
+                        tokens: tokensBy.get(skill) ?? 0,
+                        listing: tok(data.skills[skill]?.listingChars ?? 0),
+                        last: lastUsed.get(skill) ?? 0,
+                    })),
+                );
+            }
+
+            // Hourly buckets when the range is two days or less, daily otherwise.
+            function timeBuckets(events) {
+                const hourly = state.to - state.from <= 2 * DAY;
+                const key = (ts) =>
+                    hourly
+                        ? Math.floor(ts / 3600) * 3600
+                        : dayStart(isoDay(ts));
+                const next = (t) => {
+                    if (hourly) return t + 3600;
+                    const d = new Date(t * 1000);
+                    d.setDate(d.getDate() + 1); // not + DAY: DST days are 23 or 25 hours
+                    return d / 1000;
+                };
+                const counts = new Map();
+                for (const e of events)
+                    counts.set(
+                        key(e.ts),
+                        (counts.get(key(e.ts)) ?? 0) + weight(e),
+                    );
+                const buckets = [];
+                for (let t = key(state.from); t < state.to; t = next(t))
+                    buckets.push({
+                        label: hourly
+                            ? fmt(t, {
+                                  weekday: "short",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                              })
+                            : fmt(t, {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                              }),
+                        short: hourly
+                            ? fmt(t, { hour: "2-digit", minute: "2-digit" })
+                            : fmt(t, { month: "short", day: "numeric" }),
+                        value: counts.get(t) ?? 0,
+                    });
+                buckets.unit = hourly ? "hour" : "day";
+                return buckets;
+            }
+
+            // Draws bars into target, returns the tallest value.
+            function columns(target, buckets) {
+                const peak = Math.max(0, ...buckets.map((b) => b.value));
+                const max = peak || 1;
+                const plot = el("div", "cols");
+                for (const b of buckets) {
+                    const col = el("div", "col");
+                    col.dataset.label = b.label;
+                    col.dataset.text = unitText(b.value);
+                    const bar = el("i");
+                    bar.style.height = `${(b.value / max) * 100}%`;
+                    col.append(bar);
+                    plot.append(col);
+                }
+                const axis = el("div", "axis");
+                const mid = buckets[Math.floor((buckets.length - 1) / 2)];
+                for (const b of new Set([buckets[0], mid, buckets.at(-1)]))
+                    if (b) axis.append(el("span", "", b.short ?? b.label));
+                target.replaceChildren(plot, axis);
+                return peak;
+            }
+
+            function topSkills(list) {
+                if (!list.length) {
+                    $("#top").replaceChildren(
+                        el("p", "empty", "No calls in this range."),
+                    );
+                    return;
+                }
+                const max = list[0][1];
+                $("#top").replaceChildren(
+                    ...list.map(([skill, n]) => {
+                        const row = el("div", "hbar");
+                        const bar = el("i");
+                        bar.style.width = `${(n / max) * 100}%`;
+                        const track = el("div");
+                        track.append(bar);
+                        row.append(el("span", "name", skill), track);
+                        row.append(
+                            el(
+                                "span",
+                                "num",
+                                state.metric === "calls" ? n : approx(n),
+                            ),
+                        );
+                        row.title = skill;
+                        return row;
+                    }),
+                );
+            }
+
+            // Plain rules over the whole history. Each skill lands in at most one rule.
+            function suggestions() {
+                const total = new Map();
+                for (const e of data.events)
+                    total.set(e.skill, (total.get(e.skill) ?? 0) + 1);
+                const never = (kind) =>
+                    Object.keys(data.skills).filter(
+                        (s) =>
+                            data.skills[s].invocation === kind && !total.has(s),
+                    );
+                const listing = (skills) =>
+                    tok(
+                        skills.reduce(
+                            (a, s) => a + (data.skills[s]?.listingChars ?? 0),
+                            0,
+                        ),
+                    );
+                const now = nowSec();
+                const recorded = [...total.keys()].filter(
+                    (s) => data.skills[s],
+                );
+
+                const tracked = data.events.length
+                    ? Math.floor((now - data.events[0].ts) / DAY)
+                    : 0;
+                $("#note").hidden = tracked >= 30;
+                const age =
+                    tracked < 1
+                        ? "less than a day"
+                        : `${tracked} ${tracked === 1 ? "day" : "days"}`;
+                $("#note").textContent =
+                    `skillmon has been recording for ${age}. Read "never used" as "not used yet" until you have a month or more of history.`;
+
+                const all = Object.keys(data.skills);
+                const idle = all.filter((s) => !total.has(s));
+                $("#listing").textContent =
+                    `Skill listings cost ${approx(listing(all))} tokens in every session, used or not. ` +
+                    `${approx(listing(idle))} of that is for skills that were never used.`;
+
+                const rules = [
+                    [
+                        "Never used, model only",
+                        "Only the model may run these, and it never has. Either the description doesn't match how you ask for things, or you don't need them.",
+                        never("agent"),
+                    ],
+                    [
+                        "Never used, you only",
+                        "Only you can run these with /name, and you never have. Uninstall them, or they're useful and you forgot they exist.",
+                        never("user"),
+                    ],
+                    [
+                        "Never used",
+                        "Both you and the model may run these, and neither has. Candidates to uninstall.",
+                        never("both"),
+                    ],
+                    [
+                        "Nobody can run these",
+                        "The frontmatter sets both user-invocable: false and disable-model-invocation: true. Probably a mistake.",
+                        never("none"),
+                    ],
+                    [
+                        "Stopped using",
+                        "Used before, but not in the last 30 days.",
+                        recorded.filter(
+                            (s) =>
+                                total.get(s) > 1 &&
+                                now - lastUsed.get(s) > 30 * DAY,
+                        ),
+                    ],
+                    [
+                        "Tried once",
+                        "One call, more than a week ago, then never again.",
+                        recorded.filter(
+                            (s) =>
+                                total.get(s) === 1 &&
+                                now - lastUsed.get(s) > 7 * DAY,
+                        ),
+                    ],
+                    [
+                        "Not installed",
+                        "Recorded, but no SKILL.md found. Claude Code's built-in skills land here. Anything else was uninstalled and is only history.",
+                        [...total.keys()].filter((s) => !data.skills[s]),
+                    ],
+                ];
+
+                $("#rules").replaceChildren(
+                    ...rules.map(([title, why, skills]) => {
+                        const rule = el("details", "rule");
+                        rule.open = skills.length > 0;
+                        const summary = el("summary", "", title);
+                        summary.append(el("span", "num", skills.length));
+                        const cost = listing(skills);
+                        if (cost)
+                            summary.append(
+                                el(
+                                    "span",
+                                    "num",
+                                    `· ${approx(cost)} tokens per session`,
+                                ),
+                            );
+                        const chips = el("div", "chips");
+                        for (const s of skills.sort()) {
+                            const chip = el("span", "pill", s);
+                            const perSession = tok(
+                                data.skills[s]?.listingChars ?? 0,
+                            );
+                            chip.title =
+                                (lastUsed.has(s)
+                                    ? `${total.get(s)} calls, last ${ago(lastUsed.get(s))}`
+                                    : "never used") +
+                                (perSession
+                                    ? ` · ~${perSession} tokens per session`
+                                    : "");
+                            chips.append(chip);
+                        }
+                        if (!skills.length)
+                            chips.append(
+                                el("span", "empty", "Nothing matches."),
+                            );
+                        rule.append(summary, el("p", "", why), chips);
+                        return rule;
+                    }),
+                );
+            }
+
+            function table(rows) {
+                const { key, desc } = state.sort;
+                rows.sort((a, b) => {
+                    const c =
+                        typeof a[key] === "string"
+                            ? a[key].localeCompare(b[key])
+                            : a[key] - b[key];
+                    return (desc ? -c : c) || a.skill.localeCompare(b.skill);
+                });
+                for (const th of $("#head").children) {
+                    const k = th.firstElementChild.dataset.key;
+                    if (k === key)
+                        th.ariaSort = desc ? "descending" : "ascending";
+                    else th.removeAttribute("aria-sort");
+                }
+                $("#rows").replaceChildren(
+                    ...rows.map((r) => {
+                        const tr = el("tr", r.calls ? "" : "zero");
+                        const kind = el("td");
+                        kind.append(el("span", "pill", r.kind));
+                        const last = el(
+                            "td",
+                            "num",
+                            r.last ? ago(r.last) : "never",
+                        );
+                        if (r.last) last.title = fmt(r.last);
+                        tr.append(
+                            el("td", "", r.skill),
+                            kind,
+                            el("td", "num", r.calls),
+                            el("td", "num", percent.format(r.share)),
+                            perCallCell(r),
+                            el("td", "num", r.tokens ? approx(r.tokens) : "–"),
+                            el(
+                                "td",
+                                "num",
+                                r.listing ? approx(r.listing) : "–",
+                            ),
+                            last,
+                        );
+                        return tr;
+                    }),
+                );
+            }
+
+            function perCallCell(r) {
+                if (r.perCall < 0) {
+                    const td = el("td", "num", "?");
+                    td.title = "No SKILL.md and no measured call yet";
+                    return td;
+                }
+                const td = el("td", "num", approx(r.perCall));
+                td.title =
+                    r.source === "disk"
+                        ? "From SKILL.md on disk, not measured yet"
+                        : `Measured over ${r.source} ${r.source === 1 ? "call" : "calls"}`;
+                return td;
+            }
+
+            function tiles(list) {
+                $("#tiles").replaceChildren(
+                    ...list.map(([label, value, sub]) => {
+                        const card = el("div", "card tile");
+                        card.append(
+                            el("div", "label", label),
+                            el("div", "value", value),
+                            el("div", "sub", sub),
+                        );
+                        return card;
+                    }),
+                );
+            }
+
+            $("#theme").onclick = () => {
+                const dark =
+                    document.documentElement.dataset.theme === "dark" ||
+                    (!document.documentElement.dataset.theme &&
+                        matchMedia("(prefers-color-scheme: dark)").matches);
+                const next = dark ? "light" : "dark";
+                document.documentElement.dataset.theme = next;
+                try {
+                    localStorage.setItem("theme", next);
+                } catch {}
+            };
+            $("#presets").onclick = (e) => {
+                if (e.target.dataset.days)
+                    setPreset(Number(e.target.dataset.days));
+            };
+            $("#kinds").onclick = (e) => {
+                const kind = e.target.dataset.kind;
+                if (!kind) return;
+                if (!state.kinds.delete(kind)) state.kinds.add(kind);
+                render();
+            };
+            $("#metric").onclick = (e) => {
+                if (!e.target.dataset.metric) return;
+                state.metric = e.target.dataset.metric;
+                render();
+            };
+            $("#head").onclick = (e) => {
+                const key = e.target.dataset.key;
+                if (!key) return;
+                state.sort =
+                    state.sort.key === key
+                        ? { key, desc: !state.sort.desc }
+                        : { key, desc: key !== "skill" && key !== "kind" };
+                render();
+            };
+
+            const tip = $("#tip");
+            document.addEventListener("pointermove", (e) => {
+                const col = e.target.closest?.(".col");
+                tip.hidden = !col;
+                if (!col) return;
+                tip.replaceChildren(
+                    el("strong", "", col.dataset.text),
+                    col.dataset.label,
+                );
+                const x = Math.min(
+                    e.clientX + 12,
+                    innerWidth - tip.offsetWidth - 8,
+                );
+                tip.style.left = `${x}px`;
+                tip.style.top = `${e.clientY - tip.offsetHeight - 12}px`;
+            });
+            const hideTip = () => (tip.hidden = true);
+            addEventListener("scroll", hideTip);
+            document.documentElement.addEventListener("pointerleave", hideTip);
+            $("#from").onchange = setCustom;
+            $("#to").onchange = setCustom;
+
+            try {
+                data = await (await fetch("/api/data")).json();
+                $("#loaded").textContent =
+                    `${data.events.length} calls recorded · loaded ${new Date().toLocaleTimeString()}`;
+                const measured = new Map();
+                for (const e of data.events) {
+                    lastUsed.set(e.skill, e.ts);
+                    if (e.chars === null) continue;
+                    const [sum, n] = measured.get(e.skill) ?? [0, 0];
+                    measured.set(e.skill, [sum + e.chars, n + 1]);
+                }
+                for (const s of new Set([
+                    ...Object.keys(data.skills),
+                    ...lastUsed.keys(),
+                ])) {
+                    const m = measured.get(s);
+                    if (m)
+                        perCall.set(s, {
+                            tokens: tok(m[0] / m[1]),
+                            source: m[1],
+                        });
+                    else if (data.skills[s])
+                        perCall.set(s, {
+                            tokens: tok(data.skills[s].chars),
+                            source: "disk",
+                        });
+                }
+                // Old rows have no chars; they count at the skill's per-call size.
+                for (const e of data.events)
+                    e.tokens =
+                        e.chars === null
+                            ? (perCall.get(e.skill)?.tokens ?? 0)
+                            : tok(e.chars);
+                setPreset(30);
+                suggestions();
+            } catch (err) {
+                $("#tiles").innerHTML =
+                    '<p class="error">Could not load /api/data. Is <code>skillmon web</code> still running?</p>';
+            }
+        </script>
+    </body>
+</html>

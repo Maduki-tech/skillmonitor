@@ -23,8 +23,16 @@ export function open(
     db.run(`CREATE TABLE IF NOT EXISTS events (
         skill TEXT NOT NULL,
         agent TEXT NOT NULL,
-        ts INTEGER NOT NULL
+        ts INTEGER NOT NULL,
+        chars INTEGER
     )`);
+    // Databases from before chars existed. Racing sessions may both try, so
+    // "already there" is fine.
+    try {
+        db.run("ALTER TABLE events ADD COLUMN chars INTEGER");
+    } catch (e) {
+        if (!String(e).includes("duplicate column")) throw e;
+    }
     return db;
 }
 
@@ -36,13 +44,24 @@ export function record(
         skill,
         agent,
         ts = Math.floor(Date.now() / 1000),
-    }: { skill: string; agent: string; ts?: number },
+        chars = null,
+    }: { skill: string; agent: string; ts?: number; chars?: number | null },
 ) {
-    db.run("INSERT INTO events VALUES (?, ?, ?)", [
+    db.run("INSERT INTO events (skill, agent, ts, chars) VALUES (?, ?, ?, ?)", [
         skill.replace(/^.*:/, ""),
         agent,
         ts,
+        chars,
     ]);
+}
+
+// ponytail: sends the whole history; filter by ts in SQL if it ever gets slow
+export function events(db: Database) {
+    return db
+        .query<{ skill: string; ts: number; chars: number | null }, []>(
+            "SELECT skill, ts, chars FROM events ORDER BY ts",
+        )
+        .all();
 }
 
 export function stats(

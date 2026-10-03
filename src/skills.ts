@@ -7,15 +7,42 @@ type InstalledPlugins = { plugins: Record<string, { installPath: string }[]> };
 
 export type Invocation = "both" | "user" | "agent" | "none";
 
-function invocation(skillMd: string): Invocation {
-    const frontmatter = skillMd.split(/^---$/m)[1] ?? "";
-    const user = !/^user-invocable:\s*false\s*$/m.test(frontmatter);
-    const agent = !/^disable-model-invocation:\s*true\s*$/m.test(frontmatter);
-    if (user && agent) return "both";
-    return user ? "user" : agent ? "agent" : "none";
+// chars: the body, which a call adds to the conversation.
+// listingChars: what every session carries so the model can pick the skill;
+// 0 when the model may not run it.
+export type Skill = {
+    invocation: Invocation;
+    chars: number;
+    listingChars: number;
+};
+
+type Frontmatter = {
+    description?: unknown;
+    "user-invocable"?: unknown;
+    "disable-model-invocation"?: unknown;
+};
+
+function parse(name: string, skillMd: string): Skill {
+    const [, yaml = "", body = skillMd] =
+        skillMd.match(/^---\n(?:([\s\S]*?)\n)?---(?:\n|$)([\s\S]*)$/) ?? [];
+    let fm: Frontmatter = {};
+    try {
+        fm = (Bun.YAML.parse(yaml) as Frontmatter | null) ?? {};
+    } catch {} // a broken file still counts as installed
+    const user = fm["user-invocable"] !== false;
+    const agent = fm["disable-model-invocation"] !== true;
+    const description =
+        typeof fm.description === "string" ? fm.description : "";
+    return {
+        invocation:
+            user && agent ? "both" : user ? "user" : agent ? "agent" : "none",
+        chars: body.trim().length,
+        // ponytail: name + description only; Claude Code may add or trim text
+        listingChars: agent ? `${name}: ${description}`.length : 0,
+    };
 }
 
-export function installedSkills(home = homedir()): Map<string, Invocation> {
+export function installedSkills(home = homedir()): Map<string, Skill> {
     const claude = join(home, ".claude");
     const pluginsFile = join(claude, "plugins/installed_plugins.json");
     const { plugins }: InstalledPlugins = existsSync(pluginsFile)
@@ -40,10 +67,10 @@ export function installedSkills(home = homedir()): Map<string, Invocation> {
     );
     return new Map(
         files
-            .map((f): [string, Invocation] => [
-                basename(dirname(f)),
-                invocation(readFileSync(f, "utf8")),
-            ])
+            .map((f): [string, Skill] => {
+                const name = basename(dirname(f));
+                return [name, parse(name, readFileSync(f, "utf8"))];
+            })
             .sort(([a], [b]) => a.localeCompare(b)),
     );
 }

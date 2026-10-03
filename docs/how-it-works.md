@@ -5,7 +5,7 @@ It has two halves:
 
 - **Recording.** A Claude Code plugin (`mod/`) runs `skillmon record` each time a skill runs.
 - **Reporting.** `skillmon stats` reads the counts back and adds every installed skill that has
-  never been used.
+  never been used. `skillmon web` shows the same data as an analytics page in the browser.
 
 ## Call flow
 
@@ -25,8 +25,8 @@ sequenceDiagram
         CC->>CC: Skill("some-skill")
     end
     CC->>Mod: skill.prompt event (e.skill)
-    Mod->>CLI: $.process.run(["skillmon", "record", e.skill, "--agent", "claude-code"])
-    CLI->>DB: open() then record({ skill, agent })
+    Mod->>CLI: $.process.run(["skillmon", "record", e.skill, "--agent", "claude-code", "--chars", n])
+    CLI->>DB: open() then record({ skill, agent, chars })
     DB->>DB: strip plugin prefix, INSERT (skill, agent, ts)
     CLI-->>Mod: exit code
     opt exit code != 0
@@ -56,19 +56,22 @@ sequenceDiagram
    would only see the second case.
 
 3. **The hook calls the CLI.** The hook runs
-   `skillmon record <skill> --agent claude-code` as a separate process. `skillmon` is on your
+   `skillmon record <skill> --agent claude-code --chars <n>` as a separate process. `n` is the
+   length of `e.text`, the prompt text the skill adds to the conversation. `skillmon` is on your
    `PATH` through the symlink `~/.local/bin/skillmon` → `src/cli.ts`. The `#!/usr/bin/env bun`
    line at the top of `cli.ts` makes Bun run it.
 
 4. **The CLI checks its arguments and writes.** `cli.ts` parses the arguments with `parseArgs`.
-   For `record`, it needs a skill name and `--agent`, otherwise it prints usage and exits with
-   code 1. Then it calls `record()` in `db.ts`.
+   For `record`, it needs a skill name and `--agent`. `--chars` is optional and must be a whole
+   number of 0 or more. Otherwise it prints usage and exits with code 1. Then it calls
+   `record()` in `db.ts`.
 
 5. **`db.ts` stores one row.** `open()` creates `~/.local/share/skillmon/events.db` and the
-   `events` table if they don't exist. It sets `busy_timeout = 5000`, so when two sessions
-   write at once, the second one waits instead of failing. `record()` removes any plugin prefix
-   (`pstack:poteto-mode` → `poteto-mode`) and inserts `(skill, agent, ts)` with the current
-   Unix time in seconds.
+   `events` table if they don't exist, and adds the `chars` column to databases from before it
+   existed (see [Data](#data)). It sets `busy_timeout = 5000`, so when two sessions write at
+   once, the second one waits instead of failing. `record()` removes any plugin prefix
+   (`pstack:poteto-mode` → `poteto-mode`) and inserts `(skill, agent, ts, chars)` with the
+   current Unix time in seconds.
 
 6. **The skill continues.** The hook always returns `next(e)`, so a recording failure never
    blocks the skill. If the CLI exits with an error, you see a toast instead.
@@ -82,7 +85,9 @@ sequenceDiagram
       The plugin cache also keeps old, uninstalled versions, so skillmon reads this list instead
       of scanning the cache.
 
-    For each skill it reads the frontmatter to find out who may invoke it:
+    For each skill it parses the frontmatter with `Bun.YAML` and returns who may invoke it, the
+    body length (`chars`) and the listing length (`listingChars`). A file whose frontmatter
+    isn't valid YAML still counts as installed, with no flags and no description:
 
     | Frontmatter                      | `invocation` |
     | -------------------------------- | ------------ |
@@ -99,11 +104,73 @@ sequenceDiagram
    which skills you never use. A skill with events but no installed folder shows `-` as its
    invocation.
 
+## Web view, step by step
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant CLI as src/cli.ts
+    participant Browser
+    participant DB as src/db.ts<br/>events.db
+    participant Skills as src/skills.ts
+
+    User->>CLI: skillmon web
+    CLI->>CLI: Bun.serve on localhost:7171
+    CLI->>Browser: xdg-open / open
+    Browser->>CLI: GET /
+    CLI-->>Browser: src/web.html, read from disk on each request
+    Browser->>CLI: GET /api/data
+    CLI->>DB: events(db)
+    CLI->>Skills: installedSkills()
+    CLI-->>Browser: { events, skills }
+    Browser->>Browser: filter, count and draw in render()
+```
+
+1. **The server is small on purpose.** `skillmon web` starts `Bun.serve` with two routes. `/`
+   returns `src/web.html` as a plain file, so the page has no build step. `/api/data` returns
+   every recorded call (`events()` in `db.ts`, `{ skill, ts, chars }`, oldest first) and the
+   installed skills (`installedSkills()`, see below). The server keeps running until you press Ctrl+C.
+
+2. **Every page load is fresh.** The page fetches `/api/data` once when it loads. Reload the page
+   to see calls recorded since then.
+
+3. **The browser does the analytics.** The server sends raw calls, not counts, so every filter
+   runs in the browser without another request. The page keeps the filters in one `state`
+   object. Each change calls `render()`, which filters the calls once and redraws the tiles,
+   charts and table from that one list, so their numbers always agree.
+
+4. **Invocation filter.** The hook can't tell whether you typed `/skill` or the model called it,
+   so the filter uses who _may_ run a skill (the table above). Recorded skills with no
+   `SKILL.md` on disk are `other`: Claude Code's built-in skills, or skills you uninstalled.
+
+5. **Suggestions** use the whole history and ignore the filters. Each skill lands in at most one
+   rule: never used (grouped by invocation), nobody can run it (`none`), stopped using (no call
+   in 30 days), tried once (one call, over a week ago), or not installed. While there is less
+   than 30 days of history, the page says to read "never used" as "not used yet".
+
+6. **Tokens.** Tokens ≈ characters ÷ 4 (`tok()` in the page). Each skill's per-call size is the
+   average `chars` of its measured calls, else its `SKILL.md` body length. Each call counts at
+   its own `chars`, or at that per-call size for rows recorded before `chars` existed.
+   `installedSkills()` also returns `listingChars`, the length of `name: description`. The
+   model sees that text in every session, so it costs tokens even when the skill is never used.
+   It is `0` when `disable-model-invocation: true`, because the model is never shown those
+   skills.
+
+7. **Theme.** The page follows the system light or dark setting. The toggle stores your choice
+   in `localStorage`, and a small script in `<head>` applies it before the first paint.
+
 ## Data
 
 ```sql
-events(skill TEXT NOT NULL, agent TEXT NOT NULL, ts INTEGER NOT NULL)
+events(skill TEXT NOT NULL, agent TEXT NOT NULL, ts INTEGER NOT NULL, chars INTEGER)
 ```
+
+`chars` is the prompt size in characters, and `NULL` for rows from before it was recorded. It
+stores the measurement, not a token estimate, so the estimate can change without rewriting old
+rows. `open()` runs `ALTER TABLE events ADD COLUMN chars INTEGER` every time. On a database
+that already has the column, SQLite answers "duplicate column name", and `open()` ignores
+exactly that error. That way two sessions that open an old database at the same moment can't
+break each other.
 
 There is one row per use. skillmon keeps its own copy because Claude Code deletes its
 transcripts after 30 days by default (`cleanupPeriodDays`), which is too short for the 90 and
@@ -112,11 +179,12 @@ later.
 
 ## Files
 
-| Path                             | Role                                        |
-| -------------------------------- | ------------------------------------------- |
-| `mod/.claude-plugin/plugin.json` | Plugin manifest                             |
-| `mod/hooks/hooks.json`           | Lists the hook modules                      |
-| `mod/hooks/register.ts`          | `skill.prompt` hook that calls the CLI      |
-| `src/cli.ts`                     | `skillmon record` and `skillmon stats`      |
-| `src/db.ts`                      | SQLite open, `record()`, `stats()`          |
-| `src/skills.ts`                  | Finds installed skills and their invocation |
+| Path                             | Role                                           |
+| -------------------------------- | ---------------------------------------------- |
+| `mod/.claude-plugin/plugin.json` | Plugin manifest                                |
+| `mod/hooks/hooks.json`           | Lists the hook modules                         |
+| `mod/hooks/register.ts`          | `skill.prompt` hook that calls the CLI         |
+| `src/cli.ts`                     | `skillmon record`, `stats` and `web`           |
+| `src/db.ts`                      | SQLite open, `record()`, `stats()`, `events()` |
+| `src/web.html`                   | The analytics page, one file, no build step    |
+| `src/skills.ts`                  | Finds installed skills and their invocation    |

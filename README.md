@@ -6,6 +6,11 @@ skillmonitor records every skill call in a local SQLite database and shows how o
 skill was used in the last 1, 7, 30, 90 and 180 days. Installed skills you have never used
 show up with zeros, so you can see what to clean up.
 
+`skillmon web` opens the same data as an analytics page: calls over time, top skills, calls by
+hour, filters for time range and invocation, and suggestions for what to clean up.
+
+![skillmon web, dark mode, sample data](docs/web.jpg)
+
 ```
 $ skillmon stats
 ┌───┬──────────────────┬────────────┬────┬────┬─────┬─────┬──────┐
@@ -84,7 +89,8 @@ The skill should show `1` in the `d1` column.
 
 ```sh
 skillmon stats                          # usage table for all skills
-skillmon record <skill> --agent <name>  # record a use by hand (the mod does this for you)
+skillmon web                            # analytics page on http://localhost:7171
+skillmon record <skill> --agent <name> [--chars <n>]  # record a use by hand (the mod does this)
 ```
 
 ### Columns
@@ -95,6 +101,40 @@ skillmon record <skill> --agent <name>  # record a use by hand (the mod does thi
 | `invocation`  | Who may run it: `both`, `user` (only you), `agent` (only the model), `none`, or `-` if the skill is no longer installed |
 | `d1` … `d180` | Number of uses in the last 1, 7, 30, 90 and 180 days                                                                    |
 
+### Web view
+
+`skillmon web` starts a local server on `localhost:7171` and opens it in your browser. It only
+listens on your own machine. Reload the page to see the latest calls. Press Ctrl+C in the
+terminal to stop it.
+
+- **Filters:** time range (24h, 7d, 30d, 90d, All, or custom dates) and who may invoke the skill.
+  `other` means a recorded skill with no `SKILL.md` on disk: a Claude Code built-in, or a skill
+  you uninstalled.
+- **Charts:** calls per day (per hour for ranges of two days or less), top 10 skills, and calls by
+  hour of day. Hover a bar for the exact count.
+- **Calls or tokens:** a switch in the filter row makes all three charts count estimated tokens
+  instead of calls.
+- **All skills:** sortable table with calls, share, token estimates and last use.
+- **Suggestions:** skills that were never used, stopped being used, or were tried once. These
+  use your whole history and ignore the filters.
+
+### Token estimates
+
+The page estimates two costs per skill:
+
+| Cost        | What it is                                                        | Where it comes from                                                     |
+| ----------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| per call    | The skill's prompt text, added to the conversation when it runs   | Measured on every call. Before the first measured call: `SKILL.md` body |
+| per session | Name and description the model sees in every session, used or not | `SKILL.md` frontmatter. `0` for skills only you can run (`/name` only)  |
+
+The **Skill tokens** tile adds up the per-call cost of every call in the range, plus today's
+total. Suggestions show what never-used skills cost per session.
+
+These are estimates: tokens ≈ characters ÷ 4. They don't include anything a skill causes after
+it loads, like files it reads or tools it calls. Calls recorded before skillmonitor measured
+prompt size count at the skill's per-call size. Claude Code may shorten or extend the
+per-session text, so treat that column as approximate.
+
 ## Where the data lives
 
 Everything stays on your machine:
@@ -103,7 +143,8 @@ Everything stays on your machine:
 ~/.local/share/skillmon/events.db
 ```
 
-One row per skill use: skill name, agent (`claude-code`) and a timestamp. skillmonitor keeps
+One row per skill use: skill name, agent (`claude-code`), a timestamp and the prompt size in
+characters. skillmonitor keeps
 its own copy because Claude Code deletes its transcripts after 30 days by default, which is
 too short for the 90 and 180 day windows.
 
