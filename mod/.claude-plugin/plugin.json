@@ -1,0 +1,5 @@
+{
+    "name": "skillmon",
+    "version": "0.1.0",
+    "description": "Records every skill use with the skillmon CLI"
+}

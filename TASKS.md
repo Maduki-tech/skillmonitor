@@ -63,13 +63,15 @@ events(skill TEXT, agent TEXT, ts INTEGER)
 
 ## Task 4. Zero-use skills
 
-- `stats` lists the skill folders (`~/.claude/skills/*`, `~/.claude/plugins/cache/**/skills/*`)
-  and adds any skill with no events as a row of zeros. No table, no `scan` command.
+- `src/skills.ts` lists `~/.claude/skills/*/SKILL.md` plus the `skills/` folder of every plugin in
+  `~/.claude/plugins/installed_plugins.json` (the cache also holds uninstalled versions).
+- `stats` adds any skill with no events as a row of zeros. No table, no `scan` command.
 - Done when: a skill you never called shows up with all zeros.
 
 ## Task 5. Install permanently
 
-- Move the mod from the dev folder to an installed plugin so every session loads it.
+- Symlink `~/.claude/skills/skillmon` → `mod/`. Claude Code loads a plugin folder it finds in
+  `~/.claude/skills/` in every session, so no marketplace and no copy.
 - Done when: a fresh Claude Code session records skill use with nothing extra to run.
 
 ---
