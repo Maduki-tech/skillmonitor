@@ -2,6 +2,7 @@
     "name": "skillmonitor",
     "type": "module",
     "private": true,
+    "license": "MIT",
     "devDependencies": {
         "@types/bun": "latest",
         "prettier": "^3.9.9"

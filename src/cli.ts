@@ -28,27 +28,46 @@ if (
             rows.push({ skill, d1: 0, d7: 0, d30: 0, d90: 0, d180: 0 });
         }
     }
-    console.table(
-        rows.map(({ skill, ...counts }) => ({
-            skill,
-            invocation: installed.get(skill)?.invocation ?? "-",
-            ...counts,
-        })),
-    );
+    if (!rows.length) {
+        console.log(
+            "No skills found in ~/.claude/skills or installed plugins, and nothing recorded yet.",
+        );
+    } else {
+        console.table(
+            rows.map(({ skill, ...counts }) => ({
+                skill,
+                invocation: installed.get(skill)?.invocation ?? "-",
+                ...counts,
+            })),
+        );
+    }
 } else if (command === "web") {
     const db = open();
-    const server = Bun.serve({
-        hostname: "localhost",
-        port: 7171,
-        routes: {
-            "/": () => new Response(Bun.file(`${import.meta.dir}/web.html`)),
-            "/api/data": () =>
-                Response.json({
-                    events: events(db),
-                    skills: Object.fromEntries(installedSkills()),
-                }),
-        },
-    });
+    // 127.0.0.1, not localhost: localhost is both ::1 and 127.0.0.1, so a
+    // second server would quietly take the other one and the browser could
+    // open the old server.
+    let server;
+    try {
+        server = Bun.serve({
+            hostname: "127.0.0.1",
+            port: 7171,
+            routes: {
+                "/": () =>
+                    new Response(Bun.file(`${import.meta.dir}/web.html`)),
+                "/api/data": () =>
+                    Response.json({
+                        events: events(db),
+                        skills: Object.fromEntries(installedSkills()),
+                    }),
+            },
+        });
+    } catch (e) {
+        if ((e as { code?: string }).code !== "EADDRINUSE") throw e;
+        console.error(
+            "Port 7171 is in use. Is skillmon web already running? Open http://127.0.0.1:7171/ or stop it first.",
+        );
+        process.exit(1);
+    }
     console.log(`skillmon web on ${server.url} (Ctrl+C to stop)`);
     Bun.spawn([
         process.platform === "darwin" ? "open" : "xdg-open",

@@ -32,10 +32,11 @@ Skill tool.
 | Claude Code | 2.1.288 or newer | The recorder is a Claude Code mod (`skill.prompt` hook)    |
 | Bun         | 1.3 or newer     | Runs the `skillmon` CLI and provides SQLite (`bun:sqlite`) |
 | git         | any              | To clone this repo                                         |
-| OS          | Linux or macOS   | Install uses symlinks and `~/.local/bin`                   |
+| OS          | Linux            | Install uses symlinks and `~/.local/bin`                   |
 
 Nothing else is needed. There are no runtime npm dependencies and no separate SQLite install.
-Older Claude Code versions are untested and may not support mods.
+Older Claude Code versions are untested and may not support mods. macOS should work (the web
+view opens with `open` there) but is untested.
 
 ## Install
 
@@ -89,23 +90,23 @@ The skill should show `1` in the `d1` column.
 
 ```sh
 skillmon stats                          # usage table for all skills
-skillmon web                            # analytics page on http://localhost:7171
+skillmon web                            # analytics page on http://127.0.0.1:7171
 skillmon record <skill> --agent <name> [--chars <n>]  # record a use by hand (the mod does this)
 ```
 
 ### Columns
 
-| Column        | Meaning                                                                                                                 |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `skill`       | Skill name, with any plugin prefix removed (`pstack:x` → `x`)                                                           |
-| `invocation`  | Who may run it: `both`, `user` (only you), `agent` (only the model), `none`, or `-` if the skill is no longer installed |
-| `d1` … `d180` | Number of uses in the last 1, 7, 30, 90 and 180 days                                                                    |
+| Column        | Meaning                                                                                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skill`       | Skill name, with any plugin prefix removed (`pstack:x` → `x`)                                                                                                    |
+| `invocation`  | Who may run it: `both`, `user` (only you), `agent` (only the model), `none`, or `-` if no `SKILL.md` was found (a Claude Code built-in, or an uninstalled skill) |
+| `d1` … `d180` | Number of uses in the last 1, 7, 30, 90 and 180 days                                                                                                             |
 
 ### Web view
 
-`skillmon web` starts a local server on `localhost:7171` and opens it in your browser. It only
+`skillmon web` starts a local server on `127.0.0.1:7171` and opens it in your browser. It only
 listens on your own machine. Reload the page to see the latest calls. Press Ctrl+C in the
-terminal to stop it.
+terminal to stop it. Only one can run at a time; a second `skillmon web` says so and exits.
 
 - **Filters:** time range (24h, 7d, 30d, 90d, All, or custom dates) and who may invoke the skill.
   `other` means a recorded skill with no `SKILL.md` on disk: a Claude Code built-in, or a skill
@@ -144,18 +145,31 @@ Everything stays on your machine:
 ```
 
 One row per skill use: skill name, agent (`claude-code`), a timestamp and the prompt size in
-characters. skillmonitor keeps
-its own copy because Claude Code deletes its transcripts after 30 days by default, which is
-too short for the 90 and 180 day windows.
+characters. skillmonitor keeps its own copy because Claude Code deletes its transcripts after
+30 days by default, which is too short for the 90 and 180 day windows.
 
 ## Troubleshooting
 
-- **The mod shows a toast "skillmon failed: ..."** The CLI ran but returned an error. Run
-  `skillmon stats` in a terminal to see the full message.
+- **The mod shows a toast "skillmon failed: ..."** The CLI ran but returned an error, shown in
+  the toast. A usage message usually means the mod and the CLI come from different versions:
+  update (see below) and start a new Claude Code session. Run `skillmon stats` in a terminal to
+  check that the CLI and the database work.
+- **`skillmon web` shows an old page or `NaN`.** An older `skillmon web` is still running. Stop
+  it with Ctrl+C in its terminal and start it again.
 - **Skills run but nothing is recorded.** Claude Code can't find `skillmon`. Claude Code runs
   it with the PATH it was started with, so start Claude Code from a terminal where
   `skillmon stats` works. Also check that `~/.claude/skills/skillmon` points at the repo's
   `mod/` folder (`ls -l ~/.claude/skills/skillmon`).
+
+## Update
+
+```sh
+cd ~/skillmonitor
+git pull
+```
+
+Then start a new Claude Code session and restart `skillmon web` if it's running. Your database
+upgrades itself the next time skillmonitor opens it; no history is lost.
 
 ## Uninstall
 
@@ -173,3 +187,7 @@ bun test
 
 See [docs/how-it-works.md](docs/how-it-works.md) for the call flow from Claude Code to the
 database, with a diagram.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

@@ -115,7 +115,7 @@ sequenceDiagram
     participant Skills as src/skills.ts
 
     User->>CLI: skillmon web
-    CLI->>CLI: Bun.serve on localhost:7171
+    CLI->>CLI: Bun.serve on 127.0.0.1:7171
     CLI->>Browser: xdg-open / open
     Browser->>CLI: GET /
     CLI-->>Browser: src/web.html, read from disk on each request
@@ -129,7 +129,10 @@ sequenceDiagram
 1. **The server is small on purpose.** `skillmon web` starts `Bun.serve` with two routes. `/`
    returns `src/web.html` as a plain file, so the page has no build step. `/api/data` returns
    every recorded call (`events()` in `db.ts`, `{ skill, ts, chars }`, oldest first) and the
-   installed skills (`installedSkills()`, see below). The server keeps running until you press Ctrl+C.
+   installed skills (`installedSkills()`, see below). The server keeps running until you press Ctrl+C. It binds
+   `127.0.0.1`, not `localhost`: `localhost` is both `::1` and `127.0.0.1`, so a second server
+   would quietly take the other address, and the browser could open the old one. With one
+   address, a second `skillmon web` fails with "Port 7171 is in use" and exits.
 
 2. **Every page load is fresh.** The page fetches `/api/data` once when it loads. Reload the page
    to see calls recorded since then.
