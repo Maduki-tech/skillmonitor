@@ -1,11 +1,12 @@
 {
-  "name": "skillmonitor",
-  "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  }
+    "name": "skillmonitor",
+    "type": "module",
+    "private": true,
+    "devDependencies": {
+        "@types/bun": "latest",
+        "prettier": "^3.9.9"
+    },
+    "peerDependencies": {
+        "typescript": "^5"
+    }
 }

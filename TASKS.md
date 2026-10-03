@@ -28,7 +28,7 @@ mod/         Claude Code adapter
 ```
 
 ```sql
-events(id TEXT PRIMARY KEY, skill TEXT, agent TEXT, ts INTEGER)
+events(skill TEXT, agent TEXT, ts INTEGER)
 ```
 
 ---
@@ -42,10 +42,10 @@ events(id TEXT PRIMARY KEY, skill TEXT, agent TEXT, ts INTEGER)
 
 - `src/db.ts`: open `~/.local/share/skillmon/events.db`, create `events`, set `busy_timeout`
   so two sessions writing at once wait instead of failing.
-- `record()`: `INSERT OR IGNORE`, plugin prefix stripped (`pstack:poteto-mode` → `poteto-mode`).
+- `record()`: plain `INSERT`, plugin prefix stripped (`pstack:poteto-mode` → `poteto-mode`).
 - `stats(now)`: one query, one `SUM(ts > now - window)` per window, grouped by skill.
 - One test: fixed `now`, events on both sides of each window edge.
-- Learn: events vs counters, why `now` is a parameter, why the primary key makes retries safe.
+- Learn: events vs counters, why `now` is a parameter.
 - Done when: `bun test` passes.
 
 ## Task 2. CLI
@@ -76,6 +76,7 @@ events(id TEXT PRIMARY KEY, skill TEXT, agent TEXT, ts INTEGER)
 
 ## Cut, with the trigger to add it back
 
+- `id` column: the mod's `skill.prompt` event carries no id to dedupe on. Add it back with backfill.
 - Transcript backfill: oldest local transcript is 3 days old, so it buys almost nothing. Add if a
   machine with long `cleanupPeriodDays` shows up.
 - `session` / `project` columns: no view asks for them. Add with the view that does.
