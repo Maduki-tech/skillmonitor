@@ -4,27 +4,36 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { installedSkills } from "./skills";
 
-test("finds user skills and installed plugin skills, nothing else", () => {
+test("finds user and installed plugin skills with who may invoke them", () => {
     const home = mkdtempSync(join(tmpdir(), "skillmon-"));
-    const skill = (dir: string) => {
+    const skill = (dir: string, frontmatter = "") => {
         mkdirSync(dir, { recursive: true });
-        writeFileSync(join(dir, "SKILL.md"), "");
+        writeFileSync(join(dir, "SKILL.md"), `---\n${frontmatter}---\nbody`);
     };
     const plugin = join(home, ".claude/plugins/cache/p/p/1.0");
 
     skill(join(home, ".claude/skills/mine"));
-    skill(join(home, ".agents/skills/linked"));
+    skill(join(home, ".agents/skills/linked"), "user-invocable: false\n");
     symlinkSync(
         join(home, ".agents/skills/linked"),
         join(home, ".claude/skills/linked"),
     );
     mkdirSync(join(home, ".claude/skills/not-a-skill"));
-    skill(join(plugin, "skills/from-plugin"));
+    skill(
+        join(plugin, "skills/from-plugin"),
+        "disable-model-invocation: true\n",
+    );
     skill(join(home, ".claude/plugins/cache/old/old/0.1/skills/uninstalled"));
     writeFileSync(
         join(home, ".claude/plugins/installed_plugins.json"),
         JSON.stringify({ plugins: { "p@p": [{ installPath: plugin }] } }),
     );
 
-    expect(installedSkills(home)).toEqual(["from-plugin", "linked", "mine"]);
+    expect(installedSkills(home)).toEqual(
+        new Map([
+            ["from-plugin", "user"],
+            ["linked", "agent"],
+            ["mine", "both"],
+        ]),
+    );
 });
